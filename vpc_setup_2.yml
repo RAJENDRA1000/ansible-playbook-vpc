@@ -1,0 +1,131 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: import vpc variables
+      include_vars: ./vpc_setup
+
+    - name: create vprofile vpc
+      ec2_vpc_net:
+        name: "{{vpc_name}}"
+        cidr_block: "{{vpcCidr}}"
+        region: "{{region}}"
+        dns_support: yes
+        dns_hostnames: yes
+        tenancy: default
+        state: "{{state}}"
+      register: vpcout
+      # - debug:
+      # var: vpcout
+    - name: create public subnet1
+      ec2_vpc_subnet:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        az: "{{zone1}}"
+        state: "{{state}}"
+        cidr: "{{pubsub1Cidr}}"
+        map_public: yes
+        resource_tags:
+          name: vprofile_pubsub1
+      register: pubsub1_out
+    - name: create public subnet2
+      ec2_vpc_subnet:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        az: "{{zone2}}"
+        state: "{{state}}"
+        cidr: "{{pubsub2Cidr}}"
+        map_public: yes
+        resource_tags:
+          name: vprofile_pubsub2
+      register: pubsub2_out
+    - name: create public subnet3
+      ec2_vpc_subnet:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        az: "{{zone3}}"
+        state: "{{state}}"
+        cidr: "{{pubsub3Cidr}}"
+        map_public: yes
+        resource_tags:
+          name: vprofile_pubsub3
+      register: pubsub3_out
+    - name: create private subnet1
+      ec2_vpc_subnet:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        az: "{{zone1}}"
+        state: "{{state}}"
+        cidr: "{{privsub1Cidr}}"
+        map_public: yes
+        resource_tags:
+          name: vprofile_privsub1
+      register: privsub1_out
+    - name: create private subnet2
+      ec2_vpc_subnet:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        az: "{{zone2}}"
+        state: "{{state}}"
+        cidr: "{{privsub2Cidr}}"
+        map_public: yes
+        resource_tags:
+          name: vprofile_privsub2
+      register: privsub2_out
+    - name: create private subnet3
+      ec2_vpc_subnet:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        az: "{{zone3}}"
+        state: "{{state}}"
+        cidr: "{{privsub3Cidr}}"
+        map_public: yes
+        resource_tags:
+          name: vprofile_privsub3
+      register: privsub3_out
+    - name: Internet Gateway setup
+      ec2_vpc_igw:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        state: "{{state}}"
+        resource_tags:
+          name: vprofile_IGW
+      register: igw_out
+    - name: Internet routetable setup
+      ec2_vpc_route_table:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        state: "{{state}}"
+        tags:
+          name: vprofile_Pubrt
+        subnets:
+          - "{{pubsub1_out.subnet.id}}"
+          - "{{pubsub2_out.subnet.id}}"
+          - "{{pubsub3_out.subnet.id}}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{igw_out.gateway_id}}"
+      register: pubrt_out
+    - name: Internet natgateway setup
+      ec2_vpc_nat_gateway:
+
+        state: "{{state}}"
+        subnet_id: "{{pubsub1_out.subnet.id}}"
+        wait: yes
+        region: "{{region}}"
+        if_exist_do_not_create: true
+      register: NATGW_out
+    - name: set up pvt subnet route table
+      ec2_vpc_route_table:
+        vpc_id: "{{vpcout.vpc.id}}"
+        region: "{{region}}"
+        tags:
+          name: vprofile_Privt
+        subnets:
+          - "{{privsub1_out.subnet.id}}"
+          - "{{privsub2_out.subnet.id}}"
+          - "{{privsub3_out.subnet.id}}"
+        routes:
+         - dest: 0.0.0.0/0
+           gateway_id:"{{NATGW_out.nat_gateway_id}}"
+      register: priv_rut_out
