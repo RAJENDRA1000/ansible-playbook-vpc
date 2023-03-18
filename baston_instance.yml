@@ -50,4 +50,5 @@
           project: Vprofile
           owner: Devops team
         group_id: "{{BastonSG_out.group_id}}"
+        vpc_sbnet_id: "{{pubsub1id}}"
       register: Baston_Host_out
