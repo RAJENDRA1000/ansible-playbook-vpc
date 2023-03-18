@@ -1,0 +1,53 @@
+- name: Setup vprofile baston Host
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Import VPC setup variables
+      include_vars: vars/vastion_setup
+
+    - name: import VPC setup Variable
+      include_vars: vars/output_vars
+    - name: create vprofile ec2 key
+      ec2_key:
+        name: vprofile-key
+        region: "{{region}}"
+      register: key_out
+
+    - name: save private key into baston
+      copy:
+        content: "{{key_out.key.private_key}}"
+        dest: "./bastion-key.pem"
+        mode: 8600
+      when: key_out.changed
+    - name: create security group baston
+      ec2_group:
+        name: Baston-host-sg
+        description: Allow port 22 from every where and all port with sg
+        region: "{{region}}"
+        vpc_id: "{{vpcid}}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{MYIP}}"
+      register: BastonSG_out
+    - creating baston host
+      ec2:
+        key_name: vprofile_key
+        region: "{{region}}"
+        instance_type: t2.micro
+        image: "{{baston_ami}}"
+        wait: yes
+        wait timeout: 300
+        instance_tags:
+          name: "Baston_host"
+          project: Vprofile
+          owner: Devops team
+        exact_count: 1
+        count_tag:
+          name: "Baston_host"
+          project: Vprofile
+          owner: Devops team
+        group_id: "{{BastonSG_out.group_id}}"
+      register: Baston_Host_out
